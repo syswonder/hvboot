@@ -31,14 +31,23 @@ menu "Build Configuration"
 endmenu
 
 menu "Binary Files"
+  # Optional hvisor configuration
+  config ENABLE_HVISOR_BIN
+    bool "Enable hvisor.bin embedding"
+    default n
+    help
+      Enable this option to embed vmlinux.bin in the boot image.
+
   config EMBEDDED_HVISOR_BIN_PATH
     string "Path to the embedded hvisor.bin (binary striped from ELF)"
+    depends on ENABLE_HVISOR_BIN
     default "hvisor.bin"
     help
       Path to the embedded hvisor.bin file. Don't use any u-boot image binary here. Just use the raw "binary" file stripped from ELF.
 
   config HVISOR_BIN_LOAD_ADDR
     hex "hvisor.bin load address"
+    depends on ENABLE_HVISOR_BIN
     default 0x90000000
     help
       Load address for hvisor.bin in memory.
@@ -62,6 +71,45 @@ menu "Binary Files"
     default 0x80000000
     help
       Load address for vmlinux.bin in memory.
+
+  config ENABLE_DTB
+    bool "Enable dtb embedding"
+    default n
+    help
+      Enable this option to embed dtb in the boot image.
+
+  config EMBEDDED_DTB_PATH
+    string "Path to the embedded dtb"
+    depends on ENABLE_DTB
+    help
+      Path to the embedded dtb file.
+
+  config DTB_LOAD_ADDR
+    hex "dtb load address"
+    depends on ENABLE_DTB
+    default 0x00000000
+    help
+      Load address for dtb in memory.
+
+  config ENABLE_INITRD
+    bool "Enable initrd embedding"
+    default n
+    help
+      Enable this option to embed initrd in the boot image.
+
+  config EMBEDDED_INITRD_PATH
+    string "Path to the embedded initrd"
+    depends on ENABLE_INITRD
+    help
+      Path to the embedded initrd file.
+
+  config INITRD_LOAD_ADDR
+    hex "initrd load address"
+    depends on ENABLE_INITRD
+    default 0x00000000
+    help
+      Load address for initrd in memory.
+  
 endmenu
 
 menu "Source Directories"
@@ -112,11 +160,39 @@ menu "Source Directories"
 endmenu
 
 menu "Runtime Configuration"
+  config ENABLE_SERIAL
+    bool "Enable hv-boot output by mmio serial"
+    default n
+    help
+      Some board have mmio protect in UEFI. If you trouble in memory access problem, try to disable it.
+
+  config DIRECT_BOOT_LINUX
+    bool "Boot linux dirctly by hv-boot"
+    depends on ENABLE_VMLINUX
+    default n
+    help
+      Do not boot hvisor, boot linux directly.
+
+  config UEFI_RT_SERVICE_SUPPORT
+    bool "Support UEFI runtime service"
+    default n
+    help
+      In order to use UEFI runtime service, hv-boot needs to prepare something.
+
+  config FAKE_SYSTEM_TABLE_ADDR
+    hex "Fake system table address"
+    depends on UEFI_RT_SERVICE_SUPPORT
+    default 0xB0000000
+    help
+      Copy address for system table in memory.
+
   config HVISOR_LOG_LEVEL
-    string "hvisor log level (optional)"
+    string "Hvisor log level (optional)"
     default "info"
     help
       Set the log level for hvisor (error, warn, info, debug, trace). Leave default if not needed.
+
+
 endmenu
 
 # Validation rules

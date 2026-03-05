@@ -3,6 +3,7 @@
 
 #include "acpi.h"
 #include "core.h"
+#include "serial.h"
 
 EFI_GUID gEfiAcpiTableProtocolGuid = EFI_ACPI_TABLE_PROTOCOL_GUID;
 

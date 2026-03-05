@@ -18,3 +18,22 @@ hvisor_zone0_vmlinux_start:
 #endif
 hvisor_zone0_vmlinux_end:
 
+.section .hvisor.zone0_dtb
+.globl hvisor_zone0_dtb_start, hvisor_zone0_dtb_end
+hvisor_zone0_dtb_start:
+#if defined(CONFIG_EMBEDDED_DTB_PATH)
+.incbin CONFIG_EMBEDDED_DTB_PATH
+#else
+.byte 0, 0, 0, 0, 0, 0, 0, 0
+#endif
+hvisor_zone0_dtb_end:
+
+.section .hvisor.zone0_initrd
+.globl hvisor_zone0_initrd_start, hvisor_zone0_initrd_end
+hvisor_zone0_initrd_start:
+#if defined(CONFIG_EMBEDDED_INITRD_PATH)
+.incbin CONFIG_EMBEDDED_INITRD_PATH
+#else
+.byte 0, 0, 0, 0, 0, 0, 0, 0
+#endif
+hvisor_zone0_initrd_end:
