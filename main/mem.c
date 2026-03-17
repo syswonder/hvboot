@@ -236,7 +236,7 @@ void init_memmap_request(efi_boot_memmap *memmap_req,
 
 
 void flush_dcache_area(UINT64 addr, UINT64 size) {
-#if defined(CONFIG_TARGET_ARCH_LOONGARCH64)
+#if defined(CONFIG_TARGET_ARCH_AARCH64)
     uint64_t tmp1, tmp2, tmp3;
     __asm__ volatile (
         "mrs  %x[tmp1], ctr_el0\n"  
