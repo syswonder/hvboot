@@ -36,10 +36,10 @@ menu "Binary Files"
     bool "Enable hvisor.bin embedding"
     default n
     help
-      Enable this option to embed vmlinux.bin in the boot image.
+      Enable this option to embed hvisor.bin in the boot image.
 
   config EMBEDDED_HVISOR_BIN_PATH
-    string "Path to the embedded hvisor.bin (binary striped from ELF)"
+    string "Path to the embedded hvisor.bin (binary stripped from ELF)"
     depends on ENABLE_HVISOR_BIN
     default "hvisor.bin"
     help
