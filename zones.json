@@ -1,5 +1,8 @@
 {
   "nonroot": [
-   
+    {
+      "name": "linux1",
+      "load_addr": "0x90000000c0200000"
+    }
   ]
 } 

@@ -29,9 +29,9 @@ static void arch_clear_memory_regions(void) {
   memset2((void *)memset3_st, 0, memset3_size);
 }
 
-static void arch_early_init(void) { set_dmw(); }
-static void arch_init(void) { loongarch_arch_init(); }
-static void arch_before_exit_boot_services(void) {
+void arch_early_init(void) { set_dmw(); }
+void arch_init(void) { loongarch_arch_init(); }
+void arch_before_exit_boot_services(void) {
   arch_clear_memory_regions();
 }
 
