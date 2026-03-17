@@ -267,7 +267,6 @@ void flush_dcache_area(UINT64 addr, UINT64 size) {
     );
 #else
     // For other architectures, we now simply skip cache maintenance.
-    return EFI_SUCCESS;
 #endif
 }
 
