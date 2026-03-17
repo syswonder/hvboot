@@ -7,18 +7,32 @@
 
 #include <efi.h>
 #include <efilib.h>
+#include "mem.h"
 
+#if defined(CONFIG_ENABLE_HVISOR_BIN)
 extern void hvisor_bin_start();
 extern void hvisor_bin_end();
+#endif
 
 #if defined(CONFIG_ENABLE_VMLINUX)
 extern void hvisor_zone0_vmlinux_start();
 extern void hvisor_zone0_vmlinux_end();
 #endif
 
+#if defined(CONFIG_ENABLE_DTB)
+extern void hvisor_zone0_dtb_start();
+extern void hvisor_zone0_dtb_end();
+#endif
+
+#if defined(CONFIG_ENABLE_INITRD)
+extern void hvisor_zone0_initrd_start();
+extern void hvisor_zone0_initrd_end();
+#endif
+
 void print_str(const char *str);
 void print_hex(UINT8 n);
 void print_chars(char *c, int n);
+
 
 char *get_efi_status_string(EFI_STATUS status);
 const char *get_arch();
@@ -30,5 +44,10 @@ void halt();
 void check(EFI_STATUS status, const char *prefix, EFI_STATUS expected,
            EFI_SYSTEM_TABLE *SystemTable);
 
-EFI_STATUS exit_boot_services(EFI_HANDLE ImageHandle,
-                              EFI_SYSTEM_TABLE *SystemTable);
+// arch provided functions
+void arch_init();
+void arch_before_exit_boot_services();
+
+// UEFI boot services management
+EFI_STATUS exit_boot_services(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable);
+extern UINTN MEMORY_MAP_ADDR;

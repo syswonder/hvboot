@@ -2,9 +2,10 @@
  * Copyright 2025 Syswonder
  * SPDX-License-Identifier: MulanPSL-2.0
  */
-
 #include "core.h"
 #include "arch.h"
+#include "mem.h"
+#include "generated/autoconf.h"
 
 void memcpy2(void *dest, void *src, int n) {
   char *csrc = (char *)src;
@@ -158,40 +159,63 @@ void print_chars(char *c, int n) {
   }
 }
 
-// UEFI boot services management
-static UINTN memory_map_size = 0;
-static UINTN map_key, desc_size;
-static UINT32 desc_version;
-static EFI_MEMORY_DESCRIPTOR *memory_map_desc;
 
 EFI_STATUS exit_boot_services(EFI_HANDLE ImageHandle,
                               EFI_SYSTEM_TABLE *SystemTable) {
   EFI_STATUS status;
-  // get memory map
-  memory_map_size = 0;
-  memory_map_desc = NULL;
-  status = uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5,
-                             &memory_map_size, memory_map_desc, &map_key,
-                             &desc_size, &desc_version);
+  
+  UINTN boot_map_size,boot_desc_size,boot_key_ptr,boot_buff_size;
+  UINT32 boot_desc_ver;
+  EFI_MEMORY_DESCRIPTOR *map;
+  efi_boot_memmap boot_map;
+  init_memmap_request(&boot_map, &map, &boot_map_size, &boot_desc_size,
+                      &boot_desc_ver, &boot_key_ptr, &boot_buff_size, SystemTable);
+  efi_get_memory_map(SystemTable, &boot_map);
+  print_memory_map(&boot_map);
+  MEMORY_MAP_ADDR = (UINTN)&boot_map;
+  #if defined(CONFIG_UEFI_RT_SERVICE_SUPPORT)
+  UINT64 FAKE_SYSTEM_TABLE_ADDR = CONFIG_FAKE_SYSTEM_TABLE_ADDR;
+  UINTN runtime_map_size,runtime_desc_size,runtime_key_ptr,runtime_buff_size;
+  UINT32 runtime_desc_ver;
+  EFI_MEMORY_DESCRIPTOR *runtime_map_desc;
+  efi_boot_memmap runtime_map;
+  init_memmap_request(&runtime_map, &runtime_map_desc, &runtime_map_size, &runtime_desc_size,
+                      &runtime_desc_ver, &runtime_key_ptr, &runtime_buff_size, SystemTable);
+  
+  create_blank_map_from_exist(&boot_map, &runtime_map);
+  efi_reget_memory_map(SystemTable, &boot_map);
+  inject_fake_system_map_desc(&boot_map, FAKE_SYSTEM_TABLE_ADDR);
+  virtual_mapping_algorithm(&boot_map, &runtime_map);
+  print_memory_map(&runtime_map);
+  #endif
 
-  check(status, "GetMemoryMap (1st call)", EFI_BUFFER_TOO_SMALL, SystemTable);
-  Print(L"[INFO] exit_boot_services: memory_map_size = %ld\n", memory_map_size);
+  #if defined(CONFIG_DIRECT_BOOT_LINUX)
+  Print(L"[INFO] redirect memory map addr in dtb...\n");
+  status = redirect_memory_map_config_in_dtb(CONFIG_DTB_LOAD_ADDR, &boot_map);
+  if (EFI_ERROR(status)) Print(L"[ERROR] Can not redirect memory map in dtb!\n");
+  flush_dcache_area(CONFIG_DTB_LOAD_ADDR, (hvisor_zone0_dtb_end - hvisor_zone0_dtb_start));
+  #endif
 
-  memory_map_size += 20 * desc_size;
-  status = uefi_call_wrapper(SystemTable->BootServices->AllocatePool, 3,
-                             EfiLoaderData, memory_map_size,
-                             (void **)&memory_map_desc);
-  if (memory_map_desc == NULL) {
-    Print(L"[ERROR] exit_boot_services: AllocatePool failed !!!\n");
-    halt();
-  }
-
-  // the below two call should be place just in next to each other
-  // otherwise, the map key will changed when call ExitBootServices()!!
-  status = uefi_call_wrapper(SystemTable->BootServices->GetMemoryMap, 5,
-                             &memory_map_size, memory_map_desc, &map_key,
-                             &desc_size, &desc_version);
   status = uefi_call_wrapper(SystemTable->BootServices->ExitBootServices, 2,
-                             ImageHandle, map_key);
+                             ImageHandle, *boot_map.key_ptr);
+
+  if (EFI_ERROR(status)) {
+    print_str("[ERROR] can not exit boot service\n");
+  }
+  print_str("[INFO] exit done\n");
+
+  #if defined(CONFIG_UEFI_RT_SERVICE_SUPPORT)
+  status = SystemTable->RuntimeServices->SetVirtualAddressMap(*runtime_map.map_size,
+  *runtime_map.desc_size,
+  *runtime_map.desc_ver,
+  *runtime_map.map);
+
+  if (EFI_ERROR(status)) {
+    print_str("[ERROR] can not apply virtual map\n");
+  }
+  print_str("[INFO] set virtual map done\n");
+  memcpy2((VOID *)FAKE_SYSTEM_TABLE_ADDR, (VOID *)SystemTable, sizeof(EFI_SYSTEM_TABLE));
+  #endif
+
   return status;
 }
