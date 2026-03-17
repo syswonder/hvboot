@@ -236,6 +236,7 @@ void init_memmap_request(efi_boot_memmap *memmap_req,
 
 
 void flush_dcache_area(UINT64 addr, UINT64 size) {
+#if defined(CONFIG_TARGET_ARCH_LOONGARCH64)
     uint64_t tmp1, tmp2, tmp3;
     __asm__ volatile (
         "mrs  %x[tmp1], ctr_el0\n"  
@@ -264,6 +265,10 @@ void flush_dcache_area(UINT64 addr, UINT64 size) {
         : [size] "r" (size)               
         : "memory"                   
     );
+#else
+    // For other architectures, we now simply skip cache maintenance.
+    return EFI_SUCCESS;
+#endif
 }
 
 uint64_t get_u64_prop(void *fdt, int node, const char *name)
