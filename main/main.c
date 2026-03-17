@@ -107,7 +107,7 @@ static void copy_dtb_binary(EFI_SYSTEM_TABLE *SystemTable) {
 static void copy_initrd_binary(EFI_SYSTEM_TABLE *SystemTable) {
   const UINTN hvisor_zone0_initrd_addr = CONFIG_INITRD_LOAD_ADDR;
   UINT32 initrd_page = ((hvisor_zone0_initrd_end - hvisor_zone0_initrd_start) / EFI_PAGE_SIZE) + 1;
-  status = SystemTable->BootServices->AllocatePages(AllocateAddress, EfiLoaderCode, 
+  EFI_STATUS status = SystemTable->BootServices->AllocatePages(AllocateAddress, EfiLoaderCode, 
     initrd_page, (EFI_PHYSICAL_ADDRESS *)&hvisor_zone0_initrd_addr);
   if (EFI_ERROR(status)) Print(L"[ERROR] Can not allocate enough memory for initrd!\n");
   Print(L"[INFO] Linux InitRamdisk will copy to 0x%lx, size: 0x%lx\n", hvisor_zone0_initrd_addr,
@@ -145,7 +145,7 @@ static void jump_to_linux() {
   void (*linux_entry)(UINTN) = (void (*)(UINTN))(hvisor_zone0_vmlinux_addr);
   const UINTN hvisor_zone0_dtb_addr = CONFIG_DTB_LOAD_ADDR;
   linux_entry(CONFIG_DTB_LOAD_ADDR);
-  print_str("[INFO] ok, ready to jump to hvisor entry...\n");
+  print_str("[INFO] ok, ready to jump to linux entry...\n");
   linux_entry(hvisor_zone0_dtb_addr);
   // Should never reach here
   while (1) {
