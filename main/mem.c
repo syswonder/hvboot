@@ -133,7 +133,6 @@ void virtual_mapping_algorithm(efi_boot_memmap *map, efi_boot_memmap *runtime_ma
 	 * before traversing it.
 	 */
     memory_bubble_sort(map);
-    // pre_process_memmap(map);
     UINT32 num = *map->map_size / *map->desc_size;
     for(i = 0; i < num; i++, prev = in) {
         if (i != 0) in = NextMemoryDescriptor(in, *map->desc_size);
@@ -195,22 +194,6 @@ void create_blank_map_from_exist(efi_boot_memmap *map, efi_boot_memmap *runtime_
     *runtime_map->buff_size = *map->buff_size;
     *runtime_map->map_size = 0; // blank
 }
-
-
-void pre_process_memmap(efi_boot_memmap *map) {
-    UINT32 size = *map->map_size / *map->desc_size;
-    UINT32 i = 0;
-    if(size < 2) return; // no need for process.
-    EFI_MEMORY_DESCRIPTOR *ptr,*next_ptr;
-    ptr = *map->map;
-    for(i = 0; i < size; i++) {
-        next_ptr = NextMemoryDescriptor(ptr,*map->desc_size);
-        CopyMem(ptr,next_ptr,sizeof(EFI_MEMORY_DESCRIPTOR));
-        ptr = next_ptr;
-    }
-    *map->map_size = *map->map_size - *map->desc_size;
-}
-
 
 EFI_STATUS add_desc_entry_to_map(efi_boot_memmap *map, EFI_MEMORY_DESCRIPTOR *desc) {
     if (*map->map_size + *map->desc_size > *map->buff_size) return EFI_BUFFER_TOO_SMALL;

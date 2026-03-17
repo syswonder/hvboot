@@ -45,7 +45,6 @@ void virtual_mapping_algorithm(efi_boot_memmap *map, efi_boot_memmap *runtime_ma
 BOOLEAN check_regions_are_adjacent(EFI_MEMORY_DESCRIPTOR *prev, EFI_MEMORY_DESCRIPTOR *ptr);
 BOOLEAN check_regions_have_compatible_memory_type_attrs(EFI_MEMORY_DESCRIPTOR *prev, EFI_MEMORY_DESCRIPTOR *ptr);
 void create_blank_map_from_exist(efi_boot_memmap *map, efi_boot_memmap *runtime_map);
-void pre_process_memmap(efi_boot_memmap *map);
 EFI_STATUS efi_reget_memory_map(EFI_SYSTEM_TABLE *SystemTable,efi_boot_memmap *map);
 EFI_STATUS add_desc_entry_to_map(efi_boot_memmap *map, EFI_MEMORY_DESCRIPTOR *desc);
 EFI_STATUS inject_fake_system_map_desc(efi_boot_memmap *map, UINT64 target_addr);
