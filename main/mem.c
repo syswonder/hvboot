@@ -1,6 +1,5 @@
 
 #include "mem.h"
-#include "serial.h"
 #include "libfdt/libfdt.h"
 
 EFI_STATUS efi_get_memory_map(EFI_SYSTEM_TABLE *SystemTable,efi_boot_memmap *map) {

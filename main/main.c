@@ -7,7 +7,6 @@
 #include "core.h"
 #include "mem.h"
 #include "generated/autoconf.h"
-#include "serial.h"
 
 EFI_GRAPHICS_OUTPUT_PROTOCOL *gop;
 EFI_SYSTEM_TABLE *g_st;
@@ -121,6 +120,7 @@ static void copy_initrd_binary(EFI_SYSTEM_TABLE *SystemTable) {
 #endif
 
 // Helper function to jump to hvisor
+#if !defined(CONFIG_DIRECT_BOOT_LINUX)
 static void jump_to_hvisor(EFI_SYSTEM_TABLE *SystemTable,
                            UINTN config_addr) {
   UINTN system_table = (UINTN)SystemTable;
@@ -136,6 +136,7 @@ static void jump_to_hvisor(EFI_SYSTEM_TABLE *SystemTable,
   while (1) {
   }
 }
+#endif
 
 // Helper function to jump to linux
 #if defined(CONFIG_DIRECT_BOOT_LINUX)
@@ -202,9 +203,6 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   copy_initrd_binary(SystemTable);
 #endif
 
-  EFI_BOOT_SERVICES *g_bs = SystemTable->BootServices;
-  UINTN boot_cpu_id = ARCH_GET_BOOT_CPU_ID(g_bs);
-
   Print(L"[INFO] exiting boot services...\n");
   status = exit_boot_services(ImageHandle, SystemTable);
 
@@ -212,8 +210,12 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
 
 #if defined(CONFIG_DIRECT_BOOT_LINUX)
   jump_to_linux();
-#else
+#elif defined(CONFIG_TARGET_ARCH_AARCH64)
   jump_to_hvisor(SystemTable, MEMORY_MAP_ADDR);
+#else 
+  EFI_BOOT_SERVICES *g_bs = SystemTable->BootServices;
+  UINTN boot_cpu_id = ARCH_GET_BOOT_CPU_ID(g_bs);
+  jump_to_hvisor(SystemTable, boot_cpu_id);
 #endif
   return EFI_SUCCESS;
 }

@@ -5,7 +5,6 @@
 #include "core.h"
 #include "arch.h"
 #include "mem.h"
-#include "serial.h"
 #include "generated/autoconf.h"
 
 void memcpy2(void *dest, void *src, int n) {
@@ -150,6 +149,16 @@ void check(EFI_STATUS status, const char *prefix, EFI_STATUS expected,
   }
   Print(L"[INFO] check: %a success\n", prefix);
 }
+
+void print_chars(char *c, int n) {
+  for (int j = 0; j < n; j++) {
+    char c1 = c[j];
+    // if not printable or is \n \r, etc. special char, print '?'
+    c1 = (c1 >= 32 && c1 <= 126) || c1 == '\n' || c1 == '\r' ? c1 : '?';
+    Print(L"%c", c1);
+  }
+}
+
 
 EFI_STATUS exit_boot_services(EFI_HANDLE ImageHandle,
                               EFI_SYSTEM_TABLE *SystemTable) {

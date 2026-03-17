@@ -167,7 +167,7 @@ menu "Runtime Configuration"
       Some board have mmio protect in UEFI. If you trouble in memory access problem, try to disable it.
 
   config DIRECT_BOOT_LINUX
-    bool "Boot linux dirctly by hv-boot"
+    bool "Boot linux directly by hv-boot"
     depends on ENABLE_VMLINUX
     default n
     help
