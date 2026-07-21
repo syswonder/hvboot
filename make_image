@@ -8,6 +8,7 @@ HVISOR_LINUX_SRC=$(grep "^CONFIG_HVISOR_LA64_LINUX_DIR=" .config | cut -d'"' -f2
 BUILDROOT_DIR=$(grep "^CONFIG_BUILDROOT_DIR=" .config | cut -d'"' -f2)
 HVISOR_TOOL_DIR=$(grep "^CONFIG_HVISOR_TOOL_DIR=" .config | cut -d'"' -f2)
 CROSS_COMPILE=$(grep "^CONFIG_CROSS_COMPILE=" .config | cut -d'"' -f2)
+HVISOR_BIN_PATH=$(grep "^CONFIG_EMBEDDED_HVISOR_BIN_PATH=" .config | cut -d'"' -f2)
 
 if [ ! -d "${HVISOR_SRC_DIR}" ]; then
     echo "Error: hvisor source code directory not found: ${HVISOR_SRC_DIR}"
@@ -21,10 +22,15 @@ BOARD=${BOARD:-ls3a5000}
 
 # Log level - error, warn, info, debug, trace
 HVISOR_LOG_LEVEL=$(grep CONFIG_HVISOR_LOG_LEVEL .config | cut -d'"' -f2)
-HVISOR_ARGS="BID=${ARCH}/${BOARD} LOG=${HVISOR_LOG_LEVEL}"
+HVISOR_BUILD_MODE=$(basename "$(dirname "${HVISOR_BIN_PATH}")")
+if [ "${HVISOR_BUILD_MODE}" != "debug" ] && [ "${HVISOR_BUILD_MODE}" != "release" ]; then
+    echo "Error: cannot infer hvisor build mode from configured binary path: ${HVISOR_BIN_PATH}"
+    exit 1
+fi
+HVISOR_ARGS="BID=${ARCH}/${BOARD} LOG=${HVISOR_LOG_LEVEL} MODE=${HVISOR_BUILD_MODE}"
 
 # Make hvisor
-make -C "${HVISOR_SRC_DIR}" ${HVISOR_ARGS}
+make -C "${HVISOR_SRC_DIR}" ${HVISOR_ARGS} all
 
 # ANSI color codes
 YELLOW="\033[1;33m"

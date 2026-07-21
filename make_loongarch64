@@ -7,6 +7,7 @@ HVISOR_SRC_DIR=$(grep "^CONFIG_HVISOR_SRC_DIR=" .config | cut -d'"' -f2)
 HVISOR_LINUX_SRC=$(grep "^CONFIG_HVISOR_LA64_LINUX_DIR=" .config | cut -d'"' -f2)
 BUILDROOT_DIR=$(grep "^CONFIG_BUILDROOT_DIR=" .config | cut -d'"' -f2)
 HVISOR_TOOL_DIR=$(grep "^CONFIG_HVISOR_TOOL_DIR=" .config | cut -d'"' -f2)
+BOARD=${BOARD:-ls3a6000}
 
 # Color definitions
 BOLD=$(tput bold)
@@ -68,7 +69,10 @@ if [ "$(grep "^CONFIG_TARGET_ARCH_LOONGARCH64=" .config)" != "CONFIG_TARGET_ARCH
     exit 1
 fi
 
-ARCH=loongarch64 BOARD=ls3a5000 ./make_image
+if ! ARCH=loongarch64 BOARD="$BOARD" ./make_image; then
+    print_error "Failed to build the hvisor image for board: $BOARD"
+    exit 1
+fi
 # Check for zones configuration file
 ZONES_CONFIG="zones.json"
 if [ ! -f "$ZONES_CONFIG" ]; then
@@ -94,22 +98,65 @@ echo -e "${BOLD} CHOSEN_ROOT:${RESET} $CHOSEN_ROOT"
 echo -e "${BOLD} CHOSEN_NONROOT:${RESET} $CHOSEN_NONROOT"
 echo -e "${BOLD}${CYAN} ROOT LINUX:${RESET} $(cat ${HVISOR_LINUX_SRC}/target/root/vmlinux.readelf.txt | grep "Entry")"
 
-# dump ROOT_ZONE_ENTRY from HVISOR_SRC_DIR/platform/loongarch64/ls3a5000/board.rs
-echo -e "${BOLD}${CYAN} ROOT_ZONE_ENTRY:${RESET} $(cat ${HVISOR_SRC_DIR}/platform/loongarch64/ls3a5000/board.rs | grep "ROOT_ZONE_ENTRY")"
+# dump ROOT_ZONE_ENTRY from the selected board
+echo -e "${BOLD}${CYAN} ROOT_ZONE_ENTRY:${RESET} $(grep "ROOT_ZONE_ENTRY" "${HVISOR_SRC_DIR}/platform/loongarch64/${BOARD}/board.rs")"
 
 # Function to check entry points for a specific zone
 check_zone_entry_point() {
     local zone_name=$1
     local load_addr=$2
     local error=0
+    local readelf_file="${HVISOR_LINUX_SRC}/target/nonroot-${zone_name}/vmlinux.readelf.txt"
+    local json_file="${BUILDROOT_DIR}/rootfs_ramdisk_overlay/tool/${zone_name}.json"
 
     echo -e "\n${BOLD}${CYAN}=== Checking Entry Point for Zone: $zone_name ===${RESET}"
 
-    # Check readelf output from linux build
-    local linux_entry=$(cat "${HVISOR_LINUX_SRC}/target/nonroot-${zone_name}/vmlinux.readelf.txt" | grep "Entry" | awk '{print $NF}')
+    if [ ! -f "$readelf_file" ]; then
+        print_error "Linux readelf output not found for $zone_name: $readelf_file"
+        return 1
+    fi
 
-    # Check json file in buildroot
-    local json_entry=$(cat "${BUILDROOT_DIR}/rootfs_ramdisk_overlay/tool/${zone_name}.json" | grep "entry_point" | awk '{print $NF}' | tr -d '",')
+    if [ ! -f "$json_file" ]; then
+        print_error "Zone JSON not found for $zone_name: $json_file"
+        return 1
+    fi
+
+    local linux_entry
+    local linux_load_addr
+    local linux_load_paddr
+    local json_entry
+    local json_load_paddr
+    linux_entry=$(awk '/Entry point address:/ {print $NF; exit}' "$readelf_file")
+    linux_load_addr=$(awk '$NF == "_text" {print "0x" $2; exit}' "$readelf_file")
+    json_entry=$(jq -r '.entry_point' "$json_file")
+    json_load_paddr=$(jq -r '.kernel_load_paddr' "$json_file")
+
+    if [ -z "$linux_entry" ] || [ -z "$linux_load_addr" ] || \
+       [ "$json_entry" = "null" ] || [ "$json_load_paddr" = "null" ]; then
+        print_error "Failed to read kernel addresses for $zone_name"
+        return 1
+    fi
+
+    linux_load_paddr=$(printf '0x%x' "$((linux_load_addr & 0x0fffffffffffffff))")
+    json_load_paddr=$(printf '0x%x' "$((json_load_paddr))")
+
+    if [ "$linux_load_addr" != "$load_addr" ]; then
+        print_error "Load address mismatch for $zone_name:"
+        echo -e "  ${BOLD}Linux _text:${RESET} $linux_load_addr"
+        echo -e "  ${BOLD}zones.json:${RESET} $load_addr"
+        error=1
+    else
+        print_info "Load address for $zone_name matches: $linux_load_addr"
+    fi
+
+    if [ "$linux_load_paddr" != "$json_load_paddr" ]; then
+        print_error "Physical load address mismatch for $zone_name:"
+        echo -e "  ${BOLD}Linux _text PA:${RESET} $linux_load_paddr"
+        echo -e "  ${BOLD}Zone JSON:${RESET} $json_load_paddr"
+        error=1
+    else
+        print_info "Physical load address for $zone_name matches: $linux_load_paddr"
+    fi
 
     if [ "$linux_entry" != "$json_entry" ]; then
         print_error "Entry point mismatch for $zone_name:"
@@ -128,8 +175,8 @@ echo -e "\n${BOLD}${CYAN}=== Checking Zone Entry Points ===${RESET}"
 ERROR=0
 
 # Check root zone entry point
-ROOT_LINUX_ENTRY=$(cat ${HVISOR_LINUX_SRC}/target/root/vmlinux.readelf.txt | grep "Entry" | awk '{print $NF}')
-ROOT_ZONE_ENTRY=$(cat ${HVISOR_SRC_DIR}/platform/loongarch64/ls3a5000/board.rs | grep "ROOT_ZONE_ENTRY" | awk '{print $NF}' | tr -d ';')
+ROOT_LINUX_ENTRY=$(grep "Entry" "${HVISOR_LINUX_SRC}/target/root/vmlinux.readelf.txt" | awk '{print $NF}')
+ROOT_ZONE_ENTRY=$(grep "ROOT_ZONE_ENTRY" "${HVISOR_SRC_DIR}/platform/loongarch64/${BOARD}/board.rs" | awk '{print $NF}' | tr -d ';')
 
 if [ "$ROOT_LINUX_ENTRY" != "$ROOT_ZONE_ENTRY" ]; then
     print_error "Root Linux entry point mismatch:"
@@ -141,17 +188,19 @@ else
 fi
 
 # Check nonroot zones from zones.json
-jq -r '.nonroot[] | "\(.name) \(.load_addr)"' "$ZONES_CONFIG" | while read -r zone_name load_addr; do
+while read -r zone_name load_addr; do
     # Skip empty lines
     [[ -z "$zone_name" || -z "$load_addr" ]] && continue
 
     if ! check_zone_entry_point "$zone_name" "$load_addr"; then
         ERROR=1
     fi
-done
+done < <(jq -r '.nonroot[] | "\(.name) \(.load_addr)"' "$ZONES_CONFIG")
 
-if [ $ERROR -eq 0 ]; then
-    print_success "All entry points match correctly!"
+if [ "$ERROR" -ne 0 ]; then
+    echo -e "\n${BOLD}${RED}Zone entry point validation failed${RESET}"
+    exit 1
 fi
 
+print_success "All entry points match correctly!"
 echo -e "\n${BOLD}${GREEN}✓ Script completed successfully${RESET}"
